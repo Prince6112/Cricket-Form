@@ -6,21 +6,49 @@
   var errBox = document.getElementById("formError");
 
   /* ---------- which form: boys or girls ---------- */
+  // Picking Boys/Girls switches the form in place (no page reload), so the welcome
+  // screen isn't shown again and the music keeps playing.
   var CATS = { boys: "Boys", girls: "Girls" };
-  var catKey = (new URLSearchParams(location.search).get("for") || "").toLowerCase();
-  var CAT = CATS[catKey] || "";
-  var DRAFT_KEY = "ccl27-draft-" + (catKey || "none");
-  if (CAT) {
-    var other = catKey === "boys" ? "girls" : "boys";
-    document.getElementById("chooseCard").hidden = true;
-    document.getElementById("formCard").hidden = false;
-    document.getElementById("catTag").textContent = CAT + " form";
-    document.getElementById("formTitle").textContent = CAT + "' Registration";
-    document.getElementById("switchLine").innerHTML =
-      'Registering a ' + (other === "girls" ? "girl" : "boy") + '? Use the <a href="?for=' + other + '#register">' + CATS[other] + "' form</a>.";
-    document.getElementById("formCard").classList.add("cat-" + catKey);
-    document.title = CAT + "' Registration · Majestique CCL 2027";
+  var catKey = "", CAT = "", DRAFT_KEY = "ccl27-draft-none";
+  var BASE_TITLE = document.title;
+  var formReady = false; // set once the form code below has run
+  var chooseCard = document.getElementById("chooseCard"), formCard = document.getElementById("formCard");
+
+  function urlCat() { return (new URLSearchParams(location.search).get("for") || "").toLowerCase(); }
+  function applyCat(key) {
+    catKey = CATS[key] ? key : "";
+    CAT = CATS[catKey] || "";
+    DRAFT_KEY = "ccl27-draft-" + (catKey || "none");
+    chooseCard.hidden = !!CAT;
+    formCard.hidden = !CAT;
+    document.getElementById("doneCard").hidden = true;
+    formCard.classList.remove("cat-boys", "cat-girls");
+    if (CAT) {
+      var other = catKey === "boys" ? "girls" : "boys";
+      formCard.classList.add("cat-" + catKey);
+      document.getElementById("catTag").textContent = CAT + " form";
+      document.getElementById("formTitle").textContent = CAT + "' Registration";
+      document.getElementById("switchLine").innerHTML =
+        "Registering a " + (other === "girls" ? "girl" : "boy") + '? Use the <a href="?for=' + other +
+        '#register" data-cat="' + other + '">' + CATS[other] + "' form</a>.";
+      document.title = CAT + "' Registration · Majestique CCL 2027";
+    } else {
+      document.title = BASE_TITLE;
+    }
+    if (formReady) resetForm(true);
   }
+  applyCat(urlCat());
+
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest && e.target.closest("a[data-cat]");
+    if (!a || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    e.preventDefault();
+    var key = a.getAttribute("data-cat");
+    try { history.pushState(null, "", "?for=" + key + "#register"); } catch (err) {}
+    applyCat(key);
+    formCard.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  window.addEventListener("popstate", function () { applyCat(urlCat()); });
 
   /* ---------- countdown ---------- */
   var cd = document.getElementById("countdown");
@@ -335,8 +363,16 @@
     FIELDS.forEach(function (f) { if (d[f] && form.elements[f]) form.elements[f].value = d[f]; });
   }
   function clearDraft() { try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} }
+  // clears the form; with loadSaved, brings back this category's unsent draft
+  function resetForm(loadSaved) {
+    form.reset(); setPhoto(""); showError("");
+    Object.keys(RULES).forEach(function (n) { setError(n, ""); });
+    if (loadSaved && CAT) loadDraft();
+    preview(); syncPlaying(); markSize();
+  }
   if (CAT) loadDraft();
   preview(); syncPlaying(); markSize();
+  formReady = true;
   form.addEventListener("input", function () { preview(); saveDraft(); });
   form.addEventListener("change", saveDraft);
 
@@ -404,8 +440,7 @@
   }
 
   document.getElementById("againBtn").addEventListener("click", function () {
-    form.reset(); preview(); setPhoto(""); syncPlaying(); markSize();
-    Object.keys(RULES).forEach(function (n) { setError(n, ""); });
+    resetForm(false);
     document.getElementById("doneCard").hidden = true;
     document.getElementById("formCard").hidden = false;
     document.getElementById("formCard").scrollIntoView({ behavior: "smooth" });

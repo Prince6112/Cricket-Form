@@ -20,14 +20,3 @@
   for = "/assets/*"
   [headers.values]
     Cache-Control = "public, max-age=604800"
-
-# Short links to share: /boys and /girls open the matching form
-[[redirects]]
-  from = "/boys"
-  to = "/?for=boys"
-  status = 302
-
-[[redirects]]
-  from = "/girls"
-  to = "/?for=girls"
-  status = 302
